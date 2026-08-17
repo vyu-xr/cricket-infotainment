@@ -4,30 +4,29 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 8085;
-const API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
-const API_URL = `https://api.cricapi.com/v1/cricScore?apikey=${API_KEY}`;
 
-// Fetch real-world live scores from CricAPI (CricketData.org) using user's API Key
-function fetchCricApiLiveScores() {
+// Fetch real live scores from ESPNcricinfo / Cricbuzz RSS Feed
+function fetchCricinfoLiveScores() {
   return new Promise((resolve) => {
-    https.get(API_URL, (res) => {
+    https.get('https://static.cricinfo.com/rss/livescores.xml', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' }
+    }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed && parsed.status === 'success' && parsed.data) {
-            resolve(parsed.data);
-          } else {
-            resolve([]);
-          }
-        } catch (e) {
-          console.error('CricAPI JSON parse error:', e.message);
-          resolve([]);
-        }
+        const items = data.match(/<item>[\s\S]*?<\/item>/g) || [];
+        const matches = items.map(item => {
+          const titleMatch = item.match(/<title>(.*?)<\/title>/);
+          const descMatch = item.match(/<description>(.*?)<\/description>/);
+          return {
+            title: titleMatch ? titleMatch[1].trim() : '',
+            description: descMatch ? descMatch[1].trim() : ''
+          };
+        });
+        resolve(matches);
       });
     }).on('error', (err) => {
-      console.error('Error fetching CricAPI live scores:', err.message);
+      console.error('Error fetching Cricinfo live scores:', err.message);
       resolve([]);
     });
   });
@@ -36,14 +35,14 @@ function fetchCricApiLiveScores() {
 // HTTP Server
 const server = http.createServer(async (req, res) => {
   if (req.url === '/api/live') {
-    const liveMatches = await fetchCricApiLiveScores();
+    const liveMatches = await fetchCricinfoLiveScores();
     res.writeHead(200, {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     });
     res.end(JSON.stringify({
       success: true,
-      apiKeyActive: true,
+      provider: 'ESPNcricinfo Live Feed',
       timestamp: new Date().toISOString(),
       matches: liveMatches
     }));
@@ -79,7 +78,7 @@ const server = http.createServer(async (req, res) => {
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     server.listen(0, () => {
-      console.log(`📡 CricAPI Real-World Server running on http://localhost:${server.address().port}`);
+      console.log(`📡 Cricinfo Real-World Live Server running on http://localhost:${server.address().port}`);
     });
   } else {
     console.error('Server error:', err);
@@ -87,7 +86,7 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`📡 CricAPI Real-World Server running on http://localhost:${PORT}`);
+  console.log(`📡 Cricinfo Real-World Live Server running on http://localhost:${PORT}`);
 });
 
 module.exports = server;
