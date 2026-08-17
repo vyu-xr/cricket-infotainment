@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render initial Hawk-Eye pitch dots
   renderHawkEyePitchDots();
 
-  // Try fetching CricAPI data
+  // Try fetching CricAPI data for CARDS view
   fetchCricApiData();
 
   // Auto-simulate live Test match balls for SL vs IND 1st Test 2026 every 3 seconds
@@ -144,41 +144,10 @@ async function fetchCricApiData() {
     if (matches && matches.length > 0) {
       matchState.isApiActive = true;
       matchState.matches = matches;
-      updateHUDWithCricApiData();
+      renderScorecardMatches(matches);
     }
   } catch (err) {
     console.warn('CricAPI fetch warning:', err.message);
-  }
-}
-
-function updateHUDWithCricApiData() {
-  if (!matchState.matches || matchState.matches.length === 0) return;
-
-  const matches = matchState.matches;
-
-  // Always update Cards View with CricAPI match list
-  renderScorecardMatches(matches);
-
-  // If a live SL vs IND match is in CricAPI payload, parse it!
-  const slIndMatch = matches.find(m => 
-    (m.t1 && (m.t1.includes('India') || m.t1.includes('Sri Lanka'))) || 
-    (m.t2 && (m.t2.includes('India') || m.t2.includes('Sri Lanka')))
-  );
-
-  if (slIndMatch && (slIndMatch.t1s || slIndMatch.t2s)) {
-    const t1Name = formatTeamShortName(slIndMatch.t1);
-    const t2Name = formatTeamShortName(slIndMatch.t2);
-    const t1Score = slIndMatch.t1s || `${matchState.slScore}/${matchState.slWickets}`;
-    const t2Score = slIndMatch.t2s || `${matchState.indInns1}`;
-
-    const heroTeamEl = document.querySelector('.team-hero');
-    if (heroTeamEl) heroTeamEl.innerHTML = `${t1Name} <strong class="score-emerald" id="score-sl">${t1Score}</strong>`;
-
-    const oppTeamEl = document.querySelector('.team-opp');
-    if (oppTeamEl) oppTeamEl.innerHTML = `${t2Name} <strong class="score-cyan" id="score-ind">${t2Score}</strong>`;
-
-    const eqEl = document.getElementById('equation-text');
-    if (eqEl) eqEl.innerHTML = `<strong>${(slIndMatch.status || 'SL VS IND 1ST TEST IN PROGRESS').toUpperCase()}</strong>`;
   }
 }
 
@@ -199,7 +168,7 @@ function renderScorecardMatches(matches) {
       <div class="score-item"><span>SL 1st Inns</span><span>312 (94.2 ov)</span></div>
       <div class="score-item"><span>IND 1st Inns</span><span>425 (118.0 ov)</span></div>
       <div class="score-item highlight"><span>SL 2nd Inns</span><span>${matchState.slScore}/${matchState.slWickets} (${matchState.overs}.${matchState.balls} ov)</span></div>
-      <div class="card-title mt-3">REAL-WORLD CRICAPI MATCHES</div>
+      <div class="card-title mt-3">OTHER CRICAPI MATCHES</div>
   `;
   matches.slice(0, 3).forEach((m) => {
     const t1 = formatTeamShortName(m.t1);
@@ -273,8 +242,15 @@ function simulateNextBall() {
 
 function updateHUDUI() {
   // Update Score
-  const scoreEl = document.getElementById('score-sl');
-  if (scoreEl) scoreEl.textContent = `${matchState.slScore}/${matchState.slWickets}`;
+  const heroTeamEl = document.querySelector('.team-hero');
+  if (heroTeamEl) {
+    heroTeamEl.innerHTML = `SL <strong class="score-emerald" id="score-sl">${matchState.slScore}/${matchState.slWickets}</strong>`;
+  }
+
+  const oppTeamEl = document.querySelector('.team-opp');
+  if (oppTeamEl) {
+    oppTeamEl.innerHTML = `IND <strong class="score-cyan" id="score-ind">425</strong>`;
+  }
   
   const overEl = document.getElementById('hud-over-status');
   if (overEl) {
@@ -287,9 +263,8 @@ function updateHUDUI() {
   const leadEl = document.getElementById('lead-runs');
   const eqEl = document.getElementById('equation-text');
 
-  if (leadEl && eqEl) {
+  if (eqEl) {
     if (leadDiff >= 0) {
-      leadEl.textContent = leadDiff;
       eqEl.innerHTML = `SL lead by <strong>${leadDiff}</strong> runs (1st Inns: SL ${matchState.slInns1})`;
     } else {
       const trail = Math.abs(leadDiff);
@@ -315,6 +290,11 @@ function updateHUDUI() {
       span.textContent = b;
       recentContainer.appendChild(span);
     });
+  }
+
+  // Refresh Cards View if matchState matches exist
+  if (matchState.matches && matchState.matches.length > 0) {
+    renderScorecardMatches(matchState.matches);
   }
 }
 
