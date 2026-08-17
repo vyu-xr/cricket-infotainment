@@ -5,17 +5,17 @@ const path = require('path');
 
 const PORT = process.env.PORT || 8085;
 
-// RapidAPI Credentials provided by user
+// RapidAPI Credentials & Verified Endpoints
 const RAPID_API_HOST = 'cricket-api-free-data.p.rapidapi.com';
 const RAPID_API_KEY = '048c1bf91amshb8fb396b2e774f1p1f71b5jsn9fea418e14df';
 const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
 
-// 1. Fetch from RapidAPI Hub
-function fetchRapidApiCricketData() {
+// 1. Fetch Live Matches from RapidAPI (/cricket-matches-live)
+function fetchRapidApiLiveMatches() {
   return new Promise((resolve) => {
     const options = {
       hostname: RAPID_API_HOST,
-      path: '/cricket-matches',
+      path: '/cricket-matches-live',
       method: 'GET',
       headers: {
         'x-rapidapi-host': RAPID_API_HOST,
@@ -29,19 +29,58 @@ function fetchRapidApiCricketData() {
       res.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          resolve(parsed);
+          if (parsed && parsed.status === 'success') {
+            resolve(parsed.response || []);
+          } else {
+            resolve([]);
+          }
         } catch (e) {
-          resolve(null);
+          resolve([]);
         }
       });
     });
 
-    req.on('error', () => resolve(null));
+    req.on('error', () => resolve([]));
     req.end();
   });
 }
 
-// 2. Fetch from CricAPI
+// 2. Fetch Schedule Matches from RapidAPI (/cricket-schedule)
+function fetchRapidApiScheduleMatches() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: RAPID_API_HOST,
+      path: '/cricket-schedule',
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed && parsed.status === 'success' && parsed.response && parsed.response.schedules) {
+            resolve(parsed.response.schedules);
+          } else {
+            resolve([]);
+          }
+        } catch (e) {
+          resolve([]);
+        }
+      });
+    });
+
+    req.on('error', () => resolve([]));
+    req.end();
+  });
+}
+
+// 3. Fetch from CricAPI
 function fetchCricApiData() {
   return new Promise((resolve) => {
     https.get(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`, (res) => {
@@ -63,7 +102,7 @@ function fetchCricApiData() {
   });
 }
 
-// 3. Fetch from ESPNcricinfo Live RSS Stream
+// 4. Fetch from ESPNcricinfo Live RSS Stream
 function fetchCricinfoRssData() {
   return new Promise((resolve) => {
     https.get('https://static.cricinfo.com/rss/livescores.xml', {
@@ -90,8 +129,8 @@ function fetchCricinfoRssData() {
 // HTTP Server
 const server = http.createServer(async (req, res) => {
   if (req.url === '/api/live') {
-    // Try RapidAPI first, then fallback to CricAPI & Cricinfo RSS
-    const rapidData = await fetchRapidApiCricketData();
+    const rapidLive = await fetchRapidApiLiveMatches();
+    const rapidSchedule = await fetchRapidApiScheduleMatches();
     const cricApiData = await fetchCricApiData();
     const rssData = await fetchCricinfoRssData();
 
@@ -104,7 +143,10 @@ const server = http.createServer(async (req, res) => {
       success: true,
       timestamp: new Date().toISOString(),
       rapidApiHost: RAPID_API_HOST,
-      rapidData: rapidData,
+      rapidLiveEndpoint: '/cricket-matches-live',
+      rapidScheduleEndpoint: '/cricket-schedule',
+      rapidLiveMatches: rapidLive,
+      rapidSchedules: rapidSchedule,
       cricApiMatches: cricApiData,
       rssMatches: rssData
     }));

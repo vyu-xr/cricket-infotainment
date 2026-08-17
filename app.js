@@ -113,7 +113,7 @@ async function fetchMultiProviderLiveData() {
   try {
     let res = null;
 
-    // 1. Fetch from local backend server proxy (RapidAPI + CricAPI + RSS)
+    // 1. Fetch from local backend server proxy (RapidAPI /cricket-matches-live + CricAPI + RSS)
     try {
       res = await fetch('/api/live');
     } catch (e) {
@@ -122,7 +122,10 @@ async function fetchMultiProviderLiveData() {
 
     if (res && res.ok) {
       const data = await res.json();
-      const matches = data.cricApiMatches || data.rssMatches || [];
+      const matches = (data.rapidLiveMatches && data.rapidLiveMatches.length > 0) 
+        ? data.rapidLiveMatches 
+        : (data.cricApiMatches || data.rssMatches || []);
+
       if (matches && matches.length > 0) {
         matchState.isRealLiveConnected = true;
         matchState.matches = matches;
@@ -157,7 +160,7 @@ function parseMultiProviderMatches(matches) {
   renderScorecardMatches(matches);
 
   const slIndMatch = matches.find(m => {
-    const str = ((m.title || '') + (m.t1 || '') + (m.t2 || '')).toLowerCase();
+    const str = ((m.title || '') + (m.t1 || '') + (m.t2 || '') + (m.matchInfo ? JSON.stringify(m.matchInfo) : '')).toLowerCase();
     return str.includes('sri lanka') || str.includes('india');
   });
 
@@ -203,7 +206,7 @@ function updateHUDFromApi(slScore, indScore, statusText) {
   if (oppTeamEl) oppTeamEl.innerHTML = `IND <strong class="score-cyan" id="score-ind">${indScore}</strong>`;
 
   const overBadge = document.getElementById('hud-over-status');
-  if (overBadge) overBadge.textContent = 'RAPIDAPI • REAL-WORLD';
+  if (overBadge) overBadge.textContent = 'RAPIDAPI • /cricket-matches-live';
 
   const eqEl = document.getElementById('equation-text');
   if (eqEl) eqEl.innerHTML = `<strong>${statusText.toUpperCase()}</strong>`;
@@ -215,7 +218,7 @@ function renderScorecardMatches(matches) {
 
   let html = `
     <div class="simple-card">
-      <div class="card-title">RAPIDAPI & REAL-WORLD LIVESCORES FEED</div>
+      <div class="card-title">RAPIDAPI (/cricket-matches-live) FEED</div>
   `;
   matches.slice(0, 4).forEach((m) => {
     const titleText = m.title || `${m.t1 || 'Team 1'} vs ${m.t2 || 'Team 2'}`;
