@@ -42,7 +42,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ==========================================================================
-   Real-World CricAPI Engine & UI State (GitHub Pages Static Deployment Ready)
+   Sri Lanka vs India, 1st Test 2026 Live Engine & CricAPI Connector
    ========================================================================== */
 
 const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
@@ -50,13 +50,15 @@ const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
 let matchState = {
   isApiActive: false,
   matches: [],
-  activeMatchIdx: 0,
-  slScore: '148/4',
-  indScore: '425',
+  slScore: 148,
+  slWickets: 4,
+  slInns1: 312,
+  indInns1: 425,
   overs: 42,
   balls: 4,
   day: 4,
   strikerRuns: 64,
+  strikerBalls: 112,
   recentBalls: ['0', '1', '4', '0', 'W', '0'],
   timerId: null,
   activePitchBowlerIdx: 0,
@@ -82,6 +84,15 @@ let matchState = {
         { x: 52, y: 72, type: 'dot-dot' },
         { x: 42, y: 64, type: 'dot-runs' }
       ]
+    },
+    {
+      name: 'M. SIRAJ',
+      dots: [
+        { x: 50, y: 40, type: 'dot-wicket' },
+        { x: 45, y: 36, type: 'dot-dot' },
+        { x: 55, y: 44, type: 'dot-dot' },
+        { x: 38, y: 62, type: 'dot-runs' }
+      ]
     }
   ]
 };
@@ -104,27 +115,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render initial Hawk-Eye pitch dots
   renderHawkEyePitchDots();
 
-  // Fetch real CricAPI data immediately
+  // Try fetching CricAPI data
   fetchCricApiData();
 
-  // Poll CricAPI backend/direct endpoint every 8 seconds
+  // Auto-simulate live Test match balls for SL vs IND 1st Test 2026 every 3 seconds
   setInterval(() => {
-    fetchCricApiData();
-  }, 8000);
+    simulateNextBall();
+  }, 3000);
 });
 
 async function fetchCricApiData() {
   try {
     let res = null;
-    
-    // 1. Try local server endpoint if running node server.js
     try {
       res = await fetch('/api/live');
     } catch (e) {
       res = null;
     }
 
-    // 2. Direct CricAPI call for static GitHub Pages deployment
     if (!res || !res.ok) {
       res = await fetch(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`);
     }
@@ -147,40 +155,31 @@ function updateHUDWithCricApiData() {
   if (!matchState.matches || matchState.matches.length === 0) return;
 
   const matches = matchState.matches;
-  const currentMatch = matches.find(m => 
+
+  // Always update Cards View with CricAPI match list
+  renderScorecardMatches(matches);
+
+  // If a live SL vs IND match is in CricAPI payload, parse it!
+  const slIndMatch = matches.find(m => 
     (m.t1 && (m.t1.includes('India') || m.t1.includes('Sri Lanka'))) || 
     (m.t2 && (m.t2.includes('India') || m.t2.includes('Sri Lanka')))
-  ) || matches.find(m => m.t1s || m.t2s) || matches[0];
+  );
 
-  if (!currentMatch) return;
+  if (slIndMatch && (slIndMatch.t1s || slIndMatch.t2s)) {
+    const t1Name = formatTeamShortName(slIndMatch.t1);
+    const t2Name = formatTeamShortName(slIndMatch.t2);
+    const t1Score = slIndMatch.t1s || `${matchState.slScore}/${matchState.slWickets}`;
+    const t2Score = slIndMatch.t2s || `${matchState.indInns1}`;
 
-  const t1Name = formatTeamShortName(currentMatch.t1 || 'SL');
-  const t2Name = formatTeamShortName(currentMatch.t2 || 'IND');
-  const t1Score = currentMatch.t1s || '148/4';
-  const t2Score = currentMatch.t2s || '425';
-  const statusText = currentMatch.status || 'Match in progress';
+    const heroTeamEl = document.querySelector('.team-hero');
+    if (heroTeamEl) heroTeamEl.innerHTML = `${t1Name} <strong class="score-emerald" id="score-sl">${t1Score}</strong>`;
 
-  const heroTeamEl = document.querySelector('.team-hero');
-  if (heroTeamEl) {
-    heroTeamEl.innerHTML = `${t1Name} <strong class="score-emerald" id="score-sl">${t1Score}</strong>`;
+    const oppTeamEl = document.querySelector('.team-opp');
+    if (oppTeamEl) oppTeamEl.innerHTML = `${t2Name} <strong class="score-cyan" id="score-ind">${t2Score}</strong>`;
+
+    const eqEl = document.getElementById('equation-text');
+    if (eqEl) eqEl.innerHTML = `<strong>${(slIndMatch.status || 'SL VS IND 1ST TEST IN PROGRESS').toUpperCase()}</strong>`;
   }
-
-  const oppTeamEl = document.querySelector('.team-opp');
-  if (oppTeamEl) {
-    oppTeamEl.innerHTML = `${t2Name} <strong class="score-cyan" id="score-ind">${t2Score}</strong>`;
-  }
-
-  const eqEl = document.getElementById('equation-text');
-  if (eqEl) {
-    eqEl.innerHTML = `<strong>${statusText.toUpperCase()}</strong>`;
-  }
-
-  const overBadge = document.getElementById('hud-over-status');
-  if (overBadge) {
-    overBadge.textContent = `CRICAPI LIVE`;
-  }
-
-  renderScorecardMatches(matches);
 }
 
 function formatTeamShortName(name) {
@@ -194,16 +193,21 @@ function renderScorecardMatches(matches) {
   const scPane = document.getElementById('view-scorecard');
   if (!scPane) return;
 
-  let html = `<div class="simple-card"><div class="card-title">REAL-WORLD CRICAPI MATCHES</div>`;
-  matches.slice(0, 4).forEach((m, idx) => {
+  let html = `
+    <div class="simple-card">
+      <div class="card-title">SL VS IND • 1ST TEST 2026</div>
+      <div class="score-item"><span>SL 1st Inns</span><span>312 (94.2 ov)</span></div>
+      <div class="score-item"><span>IND 1st Inns</span><span>425 (118.0 ov)</span></div>
+      <div class="score-item highlight"><span>SL 2nd Inns</span><span>${matchState.slScore}/${matchState.slWickets} (${matchState.overs}.${matchState.balls} ov)</span></div>
+      <div class="card-title mt-3">REAL-WORLD CRICAPI MATCHES</div>
+  `;
+  matches.slice(0, 3).forEach((m) => {
     const t1 = formatTeamShortName(m.t1);
     const t2 = formatTeamShortName(m.t2);
-    const s1 = m.t1s || 'Yet to bat';
+    const s1 = m.t1s || 'Scheduled';
     const s2 = m.t2s || '';
-    const isHighlight = idx === 0 ? 'highlight' : '';
-
     html += `
-      <div class="score-item ${isHighlight}">
+      <div class="score-item">
         <span>${t1} vs ${t2}</span>
         <span>${s1} ${s2 ? '/ ' + s2 : ''}</span>
       </div>
@@ -211,6 +215,125 @@ function renderScorecardMatches(matches) {
   });
   html += `</div>`;
   scPane.innerHTML = html;
+}
+
+function simulateNextBall() {
+  if (matchState.slWickets >= 10) return;
+
+  // Increment ball
+  matchState.balls += 1;
+  if (matchState.balls > 6) {
+    matchState.balls = 1;
+    matchState.overs += 1;
+  }
+
+  // Event outcome pool for Test match
+  const outcomes = [0, 0, 1, 0, 4, 0, 'W', 0, 2];
+  const outcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+  let newDotType = 'dot-dot';
+
+  if (outcome === 'W') {
+    matchState.slWickets += 1;
+    matchState.strikerRuns = 0;
+    matchState.strikerBalls = 0;
+    matchState.recentBalls.shift();
+    matchState.recentBalls.push('W');
+    newDotType = 'dot-wicket';
+    addCommentary(`${matchState.overs}.${matchState.balls}`, `<strong>WICKET!</strong> Bumrah produces a beauty to edge behind!`);
+  } else {
+    matchState.slScore += outcome;
+    if (outcome > 0) {
+      matchState.strikerRuns += outcome;
+    }
+    matchState.strikerBalls += 1;
+    matchState.recentBalls.shift();
+    matchState.recentBalls.push(String(outcome));
+
+    if (outcome === 4) {
+      newDotType = 'dot-boundary';
+      addCommentary(`${matchState.overs}.${matchState.balls}`, `<strong>FOUR!</strong> Driven through covers with elegance!`);
+    } else if (outcome > 0) {
+      newDotType = 'dot-runs';
+      addCommentary(`${matchState.overs}.${matchState.balls}`, `Bumrah to Mendis, ${outcome} run(s). Pushed into midwicket.`);
+    } else {
+      newDotType = 'dot-dot';
+      addCommentary(`${matchState.overs}.${matchState.balls}`, `Bumrah to Mendis, NO RUN. Defended cleanly.`);
+    }
+  }
+
+  // Add new pitch scatter dot to current bowler dataset
+  const activeBowler = matchState.bowlersData[matchState.activePitchBowlerIdx];
+  const newX = Math.floor(Math.random() * 40) + 30; // 30% to 70% width across narrow pitch
+  const newY = Math.floor(Math.random() * 50) + 28; // 28% to 78% height
+  activeBowler.dots.push({ x: newX, y: newY, type: newDotType });
+
+  renderHawkEyePitchDots();
+  updateHUDUI();
+}
+
+function updateHUDUI() {
+  // Update Score
+  const scoreEl = document.getElementById('score-sl');
+  if (scoreEl) scoreEl.textContent = `${matchState.slScore}/${matchState.slWickets}`;
+  
+  const overEl = document.getElementById('hud-over-status');
+  if (overEl) {
+    overEl.textContent = `DAY ${matchState.day} • ${matchState.overs}.${matchState.balls} OV`;
+  }
+
+  // Lead / Trail Calculation
+  const totalSL = matchState.slInns1 + matchState.slScore;
+  const leadDiff = totalSL - matchState.indInns1;
+  const leadEl = document.getElementById('lead-runs');
+  const eqEl = document.getElementById('equation-text');
+
+  if (leadEl && eqEl) {
+    if (leadDiff >= 0) {
+      leadEl.textContent = leadDiff;
+      eqEl.innerHTML = `SL lead by <strong>${leadDiff}</strong> runs (1st Inns: SL ${matchState.slInns1})`;
+    } else {
+      const trail = Math.abs(leadDiff);
+      eqEl.innerHTML = `SL trail by <strong>${trail}</strong> runs (1st Inns: SL ${matchState.slInns1})`;
+    }
+  }
+
+  // Batters
+  const strikerEl = document.getElementById('striker-runs');
+  if (strikerEl) strikerEl.textContent = matchState.strikerRuns;
+
+  // Recent Balls Ribbon
+  const recentContainer = document.getElementById('recent-balls');
+  if (recentContainer) {
+    recentContainer.innerHTML = '';
+    matchState.recentBalls.forEach((b, idx) => {
+      const span = document.createElement('span');
+      span.className = 'ball-tag';
+      if (b === '4') span.classList.add('ball-four');
+      else if (b === '6') span.classList.add('ball-six');
+      else if (b === 'W') span.classList.add('ball-wicket');
+      if (idx === matchState.recentBalls.length - 1) span.classList.add('ball-current');
+      span.textContent = b;
+      recentContainer.appendChild(span);
+    });
+  }
+}
+
+function addCommentary(over, text) {
+  const commContainer = document.getElementById('comm-list-container');
+  if (!commContainer) return;
+
+  const item = document.createElement('div');
+  item.className = 'comm-box';
+  if (text.includes('FOUR') || text.includes('WICKET')) {
+    item.classList.add('highlight-six');
+  }
+  item.innerHTML = `<span class="comm-over">${over}</span><span class="comm-txt">${text}</span>`;
+  commContainer.insertBefore(item, commContainer.firstChild);
+
+  // Keep max 2 items to strictly avoid scrolling
+  while (commContainer.children.length > 2) {
+    commContainer.removeChild(commContainer.lastChild);
+  }
 }
 
 function handleAction(action, targetBtn) {
