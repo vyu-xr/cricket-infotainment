@@ -1,0 +1,21 @@
+{
+  "name": "mrbd-cricket-infotainment",
+  "version": "1.0.0",
+  "description": "Meta Ray-Ban Display (MRBD) Additive HUD Cricket Infotainment Web App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "meta-ray-ban-display",
+    "mrbd",
+    "cricket",
+    "web-app",
+    "hud",
+    "additive-display"
+  ],
+  "author": "",
+  "license": "ISC"
+}
