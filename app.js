@@ -42,7 +42,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ==========================================================================
-   Real-World CricAPI Engine & UI State
+   Real-World CricAPI Engine & UI State (GitHub Pages Static Deployment Ready)
    ========================================================================== */
 
 const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fetch real CricAPI data immediately
   fetchCricApiData();
 
-  // Poll CricAPI backend endpoint every 8 seconds
+  // Poll CricAPI backend/direct endpoint every 8 seconds
   setInterval(() => {
     fetchCricApiData();
   }, 8000);
@@ -115,12 +115,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function fetchCricApiData() {
   try {
-    const res = await fetch('/api/live');
-    if (!res.ok) throw new Error('CricAPI offline');
+    let res = null;
+    
+    // 1. Try local server endpoint if running node server.js
+    try {
+      res = await fetch('/api/live');
+    } catch (e) {
+      res = null;
+    }
+
+    // 2. Direct CricAPI call for static GitHub Pages deployment
+    if (!res || !res.ok) {
+      res = await fetch(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`);
+    }
+
+    if (!res || !res.ok) throw new Error('API offline');
+
     const data = await res.json();
-    if (data.success && data.matches && data.matches.length > 0) {
+    const matches = data.matches || data.data || [];
+    if (matches && matches.length > 0) {
       matchState.isApiActive = true;
-      matchState.matches = data.matches;
+      matchState.matches = matches;
       updateHUDWithCricApiData();
     }
   } catch (err) {
@@ -131,7 +146,6 @@ async function fetchCricApiData() {
 function updateHUDWithCricApiData() {
   if (!matchState.matches || matchState.matches.length === 0) return;
 
-  // Pick India / Sri Lanka match if active, else top live/result match
   const matches = matchState.matches;
   const currentMatch = matches.find(m => 
     (m.t1 && (m.t1.includes('India') || m.t1.includes('Sri Lanka'))) || 
@@ -140,14 +154,12 @@ function updateHUDWithCricApiData() {
 
   if (!currentMatch) return;
 
-  // Extract Short Team Names (e.g. "Sri Lanka [SL]" -> "SL")
   const t1Name = formatTeamShortName(currentMatch.t1 || 'SL');
   const t2Name = formatTeamShortName(currentMatch.t2 || 'IND');
   const t1Score = currentMatch.t1s || '148/4';
   const t2Score = currentMatch.t2s || '425';
   const statusText = currentMatch.status || 'Match in progress';
 
-  // Update Hero Card Elements
   const heroTeamEl = document.querySelector('.team-hero');
   if (heroTeamEl) {
     heroTeamEl.innerHTML = `${t1Name} <strong class="score-emerald" id="score-sl">${t1Score}</strong>`;
@@ -158,19 +170,16 @@ function updateHUDWithCricApiData() {
     oppTeamEl.innerHTML = `${t2Name} <strong class="score-cyan" id="score-ind">${t2Score}</strong>`;
   }
 
-  // Update Status Equation Pill
   const eqEl = document.getElementById('equation-text');
   if (eqEl) {
     eqEl.innerHTML = `<strong>${statusText.toUpperCase()}</strong>`;
   }
 
-  // Update Top Badge
   const overBadge = document.getElementById('hud-over-status');
   if (overBadge) {
     overBadge.textContent = `CRICAPI LIVE`;
   }
 
-  // Update Scorecard View Summary
   renderScorecardMatches(matches);
 }
 
