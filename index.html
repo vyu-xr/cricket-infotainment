@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=600, height=600, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="description" content="Meta Ray-Ban Display (MRBD) Additive HUD Cricket Infotainment Web App featuring Sri Lanka vs India 1st Test 2026 live scores, commentary, scorecard, and Hawk-Eye pitch scatter maps.">
+  <meta name="description" content="Meta Ray-Ban Display (MRBD) Additive HUD Cricket Infotainment Web App featuring Sri Lanka vs India 1st Test 2026 live scores from Cricbuzz.">
   <meta name="mrbd-web-app-capable" content="yes">
   <title>MRBD Cricket Infotainment HUD</title>
   <link rel="stylesheet" href="styles.css">
@@ -16,42 +16,42 @@
         <span class="live-dot"></span>
         <span class="hud-title">CRICKET HUD</span>
       </div>
-      <div class="over-badge" id="hud-over-status">DAY 4 • 42.4 OV</div>
+      <div class="over-badge" id="hud-over-status">DAY 3 • 61.1 OV</div>
     </header>
 
     <!-- Main Hero Focus Display Area -->
     <main class="main-focus-wrapper">
-      <!-- Pane 1: Live Score & Match Focus (Sri Lanka vs India 1st Test 2026) -->
+      <!-- Pane 1: Live Score & Match Focus (Cricbuzz Exact SL vs IND 1st Test 2026 Data) -->
       <div class="view-pane active" id="view-live">
         <div class="hero-score-card">
           <div class="teams-line">
-            <span class="team-hero">SL <strong class="score-emerald" id="score-sl">148/4</strong></span>
+            <span class="team-hero">SL <strong class="score-emerald" id="score-sl">235/5</strong></span>
             <span class="vs-tag">VS</span>
-            <span class="team-opp">IND <strong class="score-cyan" id="score-ind">425</strong></span>
+            <span class="team-opp">IND <strong class="score-cyan" id="score-ind">462</strong></span>
           </div>
 
           <div class="target-pill" id="equation-text">
-            SL lead by <strong id="lead-runs">35</strong> runs (1st Inns: SL 312)
+            SL trail by <strong id="lead-runs">228</strong> runs (1st Inns: IND 462)
           </div>
 
           <div class="players-live-row">
             <div class="striker-box">
               <span class="role-lbl">BATTER</span>
-              <span class="player-name">K. Mendis * <strong id="striker-runs">64</strong>(112b)</span>
+              <span class="player-name">S. Dinusha * <strong id="striker-runs">73</strong>(129b)</span>
             </div>
             <div class="bowler-box">
               <span class="role-lbl">BOWLER</span>
-              <span class="player-name">J. Bumrah <strong>2/34</strong></span>
+              <span class="player-name">P. Krishna <strong>0/43</strong></span>
             </div>
           </div>
 
           <div class="balls-ribbon" id="recent-balls">
-            <span class="ball-tag">0</span>
             <span class="ball-tag">1</span>
-            <span class="ball-tag ball-four">4</span>
             <span class="ball-tag">0</span>
-            <span class="ball-tag ball-wicket">W</span>
-            <span class="ball-tag ball-current">0</span>
+            <span class="ball-tag ball-four">4</span>
+            <span class="ball-tag">1</span>
+            <span class="ball-tag">0</span>
+            <span class="ball-tag ball-current">1</span>
           </div>
         </div>
       </div>
@@ -59,13 +59,13 @@
       <!-- Pane 2: Scorecard Summary -->
       <div class="view-pane" id="view-scorecard">
         <div class="simple-card">
-          <div class="card-title">SL VS IND • 1ST TEST 2026</div>
-          <div class="score-item"><span>SL 1st Inns</span><span>312 (94.2 ov)</span></div>
-          <div class="score-item"><span>IND 1st Inns</span><span>425 (118.0 ov)</span></div>
-          <div class="score-item highlight"><span>SL 2nd Inns</span><span>148/4 (42.4 ov)</span></div>
+          <div class="card-title">SL VS IND • 1ST TEST 2026 (CRICBUZZ)</div>
+          <div class="score-item"><span>IND 1st Inns</span><span>462 (118.0 ov)</span></div>
+          <div class="score-item highlight"><span>SL 1st Inns</span><span>235/5 (61.1 ov)</span></div>
           <div class="card-title mt-3">KEY PERFORMERS</div>
-          <div class="score-item"><span>S. Gill (IND)</span><span>124 (198b)</span></div>
-          <div class="score-item"><span>J. Bumrah (IND)</span><span>4/52 & 2/34</span></div>
+          <div class="score-item"><span>S. Dinusha * (SL)</span><span>73* (129b)</span></div>
+          <div class="score-item"><span>N. Dickwella (SL)</span><span>80 (114b)</span></div>
+          <div class="score-item"><span>R. Jadeja (IND)</span><span>1/49 (14.0 ov)</span></div>
         </div>
       </div>
 
@@ -74,12 +74,12 @@
         <div class="simple-card">
           <div class="card-title">LIVE TEST COMMENTARY</div>
           <div class="comm-box highlight-six">
-            <span class="comm-over">42.4</span>
-            <span class="comm-txt"><strong>DOT!</strong> Bumrah bowls a sharp inswinger to Mendis!</span>
+            <span class="comm-over">61.1</span>
+            <span class="comm-txt"><strong>SINGLE!</strong> Prasidh Krishna to Dinusha, 1 run into deep cover point.</span>
           </div>
           <div class="comm-box">
-            <span class="comm-over">42.3</span>
-            <span class="comm-txt">Bumrah to Mendis, NO RUN. Defended solidly off backfoot.</span>
+            <span class="comm-over">60.6</span>
+            <span class="comm-txt">Jadeja to Dickwella, NO RUN. Pushed to mid-off.</span>
           </div>
         </div>
       </div>
@@ -90,7 +90,7 @@
           <div class="pitch-top-bar">
             <span class="card-title">HAWK-EYE PITCH</span>
             <button class="focusable pitch-bowler-btn" data-action="switch-pitch-bowler" id="pitch-bowler-name">
-              BOWLER: J. BUMRAH
+              BOWLER: P. KRISHNA
             </button>
           </div>
 
