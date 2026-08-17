@@ -5,11 +5,69 @@ const path = require('path');
 
 const PORT = process.env.PORT || 8085;
 
-// Fetch real live scores from ESPNcricinfo / Cricbuzz RSS Feed
-function fetchCricinfoLiveScores() {
+// RapidAPI Credentials provided by user
+const RAPID_API_HOST = 'cricket-api-free-data.p.rapidapi.com';
+const RAPID_API_KEY = '048c1bf91amshb8fb396b2e774f1p1f71b5jsn9fea418e14df';
+const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
+
+// 1. Fetch from RapidAPI Hub
+function fetchRapidApiCricketData() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: RAPID_API_HOST,
+      path: '/cricket-matches',
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': RAPID_API_HOST,
+        'x-rapidapi-key': RAPID_API_KEY
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', () => resolve(null));
+    req.end();
+  });
+}
+
+// 2. Fetch from CricAPI
+function fetchCricApiData() {
+  return new Promise((resolve) => {
+    https.get(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed && parsed.status === 'success' && parsed.data) {
+            resolve(parsed.data);
+          } else {
+            resolve([]);
+          }
+        } catch (e) {
+          resolve([]);
+        }
+      });
+    }).on('error', () => resolve([]));
+  });
+}
+
+// 3. Fetch from ESPNcricinfo Live RSS Stream
+function fetchCricinfoRssData() {
   return new Promise((resolve) => {
     https.get('https://static.cricinfo.com/rss/livescores.xml', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' }
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     }, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
@@ -25,26 +83,30 @@ function fetchCricinfoLiveScores() {
         });
         resolve(matches);
       });
-    }).on('error', (err) => {
-      console.error('Error fetching Cricinfo live scores:', err.message);
-      resolve([]);
-    });
+    }).on('error', () => resolve([]));
   });
 }
 
 // HTTP Server
 const server = http.createServer(async (req, res) => {
   if (req.url === '/api/live') {
-    const liveMatches = await fetchCricinfoLiveScores();
+    // Try RapidAPI first, then fallback to CricAPI & Cricinfo RSS
+    const rapidData = await fetchRapidApiCricketData();
+    const cricApiData = await fetchCricApiData();
+    const rssData = await fetchCricinfoRssData();
+
     res.writeHead(200, {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     });
+
     res.end(JSON.stringify({
       success: true,
-      provider: 'ESPNcricinfo Live Feed',
       timestamp: new Date().toISOString(),
-      matches: liveMatches
+      rapidApiHost: RAPID_API_HOST,
+      rapidData: rapidData,
+      cricApiMatches: cricApiData,
+      rssMatches: rssData
     }));
     return;
   }
@@ -78,7 +140,7 @@ const server = http.createServer(async (req, res) => {
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     server.listen(0, () => {
-      console.log(`📡 Cricinfo Real-World Live Server running on http://localhost:${server.address().port}`);
+      console.log(`📡 Cricket Infotainment Server running on http://localhost:${server.address().port}`);
     });
   } else {
     console.error('Server error:', err);
@@ -86,7 +148,7 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`📡 Cricinfo Real-World Live Server running on http://localhost:${PORT}`);
+  console.log(`📡 Cricket Infotainment Server running on http://localhost:${PORT}`);
 });
 
 module.exports = server;

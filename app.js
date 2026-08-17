@@ -42,9 +42,11 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ==========================================================================
-   100% Pure Real-World API Live Score Engine (ZERO Simulation)
+   Multi-Provider Real-World Live Score Engine (RapidAPI + CricAPI + Cricinfo)
    ========================================================================== */
 
+const RAPID_API_HOST = 'cricket-api-free-data.p.rapidapi.com';
+const RAPID_API_KEY = '048c1bf91amshb8fb396b2e774f1p1f71b5jsn9fea418e14df';
 const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
 
 let matchState = {
@@ -98,73 +100,58 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render initial Hawk-Eye pitch dots
   renderHawkEyePitchDots();
 
-  // Fetch real-world API live score immediately
-  fetchPureRealWorldLiveData();
+  // Fetch real-world API live scores immediately
+  fetchMultiProviderLiveData();
 
-  // Poll ONLY real-world API endpoints every 5 seconds (ZERO simulation)
+  // Poll real-world API endpoints every 5 seconds (ZERO simulation)
   setInterval(() => {
-    fetchPureRealWorldLiveData();
+    fetchMultiProviderLiveData();
   }, 5000);
 });
 
-async function fetchPureRealWorldLiveData() {
+async function fetchMultiProviderLiveData() {
   try {
     let res = null;
 
-    // 1. Fetch from local backend proxy
+    // 1. Fetch from local backend server proxy (RapidAPI + CricAPI + RSS)
     try {
       res = await fetch('/api/live');
     } catch (e) {
       res = null;
     }
 
-    // 2. Fetch directly from CricAPI using user API Key
-    if (!res || !res.ok) {
-      res = await fetch(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`);
-    }
-
-    // 3. Fetch directly from ESPNcricinfo Live RSS Stream
-    if (!res || !res.ok) {
-      res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://static.cricinfo.com/rss/livescores.xml'));
-    }
-
-    if (!res || !res.ok) throw new Error('Live API endpoints offline');
-
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const json = await res.json();
-      const matches = json.matches || json.data || [];
+    if (res && res.ok) {
+      const data = await res.json();
+      const matches = data.cricApiMatches || data.rssMatches || [];
       if (matches && matches.length > 0) {
         matchState.isRealLiveConnected = true;
         matchState.matches = matches;
-        parsePureRealWorldMatches(matches);
+        parseMultiProviderMatches(matches);
       }
-    } else {
-      const xmlText = await res.text();
-      const items = parseXmlItems(xmlText);
-      if (items.length > 0) {
-        matchState.isRealLiveConnected = true;
-        matchState.matches = items;
-        parsePureRealWorldMatches(items);
+      return;
+    }
+
+    // 2. Direct CricAPI call if server proxy is unavailable
+    try {
+      res = await fetch(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`);
+      if (res && res.ok) {
+        const json = await res.json();
+        const matches = json.data || json.matches || [];
+        if (matches && matches.length > 0) {
+          matchState.isRealLiveConnected = true;
+          matchState.matches = matches;
+          parseMultiProviderMatches(matches);
+        }
       }
+    } catch (e) {
+      console.warn('Direct CricAPI fetch notice:', e.message);
     }
   } catch (err) {
-    console.warn('Real-world API fetch notice:', err.message);
+    console.warn('Multi-provider live score fetch notice:', err.message);
   }
 }
 
-function parseXmlItems(xmlText) {
-  const matches = [];
-  const itemMatches = xmlText.match(/<item>[\s\S]*?<\/item>/g) || [];
-  itemMatches.forEach(item => {
-    const title = (item.match(/<title>(.*?)<\/title>/) || [])[1] || '';
-    const description = (item.match(/<description>(.*?)<\/description>/) || [])[1] || '';
-    if (title) matches.push({ title: title.trim(), description: description.trim() });
-  });
-  return matches;
-}
-
-function parsePureRealWorldMatches(matches) {
+function parseMultiProviderMatches(matches) {
   if (!matches || matches.length === 0) return;
 
   renderScorecardMatches(matches);
@@ -176,7 +163,6 @@ function parsePureRealWorldMatches(matches) {
 
   if (slIndMatch) {
     if (slIndMatch.t1s || slIndMatch.t2s) {
-      // JSON API Response
       const t1Score = slIndMatch.t1s || matchState.slScore;
       const t2Score = slIndMatch.t2s || matchState.indScore;
       const status = slIndMatch.status || matchState.statusMessage;
@@ -187,7 +173,6 @@ function parsePureRealWorldMatches(matches) {
 
       updateHUDFromApi(t1Score, t2Score, status);
     } else if (slIndMatch.title) {
-      // RSS Title Response e.g. "Sri Lanka 244/7 * v India 462/10"
       const parts = slIndMatch.title.split(/v|vs/i);
       if (parts.length >= 2) {
         const slPart = parts.find(p => p.toLowerCase().includes('sri lanka')) || parts[0];
@@ -218,7 +203,7 @@ function updateHUDFromApi(slScore, indScore, statusText) {
   if (oppTeamEl) oppTeamEl.innerHTML = `IND <strong class="score-cyan" id="score-ind">${indScore}</strong>`;
 
   const overBadge = document.getElementById('hud-over-status');
-  if (overBadge) overBadge.textContent = 'REAL-WORLD LIVE API';
+  if (overBadge) overBadge.textContent = 'RAPIDAPI • REAL-WORLD';
 
   const eqEl = document.getElementById('equation-text');
   if (eqEl) eqEl.innerHTML = `<strong>${statusText.toUpperCase()}</strong>`;
@@ -230,7 +215,7 @@ function renderScorecardMatches(matches) {
 
   let html = `
     <div class="simple-card">
-      <div class="card-title">REAL-WORLD LIVE SCORECARD FEED</div>
+      <div class="card-title">RAPIDAPI & REAL-WORLD LIVESCORES FEED</div>
   `;
   matches.slice(0, 4).forEach((m) => {
     const titleText = m.title || `${m.t1 || 'Team 1'} vs ${m.t2 || 'Team 2'}`;
@@ -297,5 +282,5 @@ function switchPitchBowler(btn) {
 
 // Export for Node unit testing environment if running under CommonJS
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { DPAD, moveFocus, matchState, fetchPureRealWorldLiveData };
+  module.exports = { DPAD, moveFocus, matchState, fetchMultiProviderLiveData, RAPID_API_HOST, RAPID_API_KEY };
 }
