@@ -42,22 +42,18 @@ document.addEventListener('keydown', function(e) {
 });
 
 /* ==========================================================================
-   Exact Cricbuzz SL vs IND 1st Test 2026 Match Engine
+   Real-World Live Cricket Score Engine (NO Automatic Simulation)
    ========================================================================== */
 
+const CRIC_API_KEY = '25284dc8-0d81-49c1-ad70-55a023e163f8';
+
 let matchState = {
-  isApiActive: false,
+  isRealLiveConnected: false,
   matches: [],
-  slScore: 235,
-  slWickets: 5,
-  indInns1: 462,
-  overs: 61,
-  balls: 1,
-  day: 3,
-  strikerRuns: 73,
-  strikerBalls: 129,
-  recentBalls: ['1', '0', '4', '1', '0', '1'],
-  timerId: null,
+  slScore: '235/5',
+  indScore: '462',
+  overs: '61.1',
+  statusMessage: 'Sri Lanka trail by 227 runs',
   activePitchBowlerIdx: 0,
   bowlersData: [
     {
@@ -102,133 +98,150 @@ document.addEventListener('DOMContentLoaded', () => {
   // Render initial Hawk-Eye pitch dots
   renderHawkEyePitchDots();
 
-  // Auto-simulate live Test match balls for SL vs IND 1st Test 2026 every 3 seconds
+  // Fetch real-world live scores immediately (NO simulation timer)
+  fetchRealWorldLiveScores();
+
+  // Poll ONLY real-world live scores every 5 seconds
   setInterval(() => {
-    simulateNextBall();
-  }, 3000);
+    fetchRealWorldLiveScores();
+  }, 5000);
 });
 
-function simulateNextBall() {
-  if (matchState.slWickets >= 10) return;
-
-  // Increment ball
-  matchState.balls += 1;
-  if (matchState.balls > 6) {
-    matchState.balls = 1;
-    matchState.overs += 1;
-  }
-
-  // Event outcome pool for Test match
-  const outcomes = [0, 0, 1, 0, 4, 0, 'W', 0, 2];
-  const outcome = outcomes[Math.floor(Math.random() * outcomes.length)];
-  let newDotType = 'dot-dot';
-
-  if (outcome === 'W') {
-    matchState.slWickets += 1;
-    matchState.strikerRuns = 0;
-    matchState.strikerBalls = 0;
-    matchState.recentBalls.shift();
-    matchState.recentBalls.push('W');
-    newDotType = 'dot-wicket';
-    addCommentary(`${matchState.overs}.${matchState.balls}`, `<strong>WICKET!</strong> Prasidh Krishna gets the breakthrough! Caught behind!`);
-  } else {
-    matchState.slScore += outcome;
-    if (outcome > 0) {
-      matchState.strikerRuns += outcome;
+async function fetchRealWorldLiveScores() {
+  try {
+    let res = null;
+    try {
+      res = await fetch('/api/live');
+    } catch (e) {
+      res = null;
     }
-    matchState.strikerBalls += 1;
-    matchState.recentBalls.shift();
-    matchState.recentBalls.push(String(outcome));
 
-    if (outcome === 4) {
-      newDotType = 'dot-boundary';
-      addCommentary(`${matchState.overs}.${matchState.balls}`, `<strong>FOUR!</strong> Sonal Dinusha drives through covers with sweet timing!`);
-    } else if (outcome > 0) {
-      newDotType = 'dot-runs';
-      addCommentary(`${matchState.overs}.${matchState.balls}`, `Krishna to Dinusha, ${outcome} run(s). Pushed into deep point.`);
+    if (!res || !res.ok) {
+      res = await fetch(`https://api.cricapi.com/v1/cricScore?apikey=${CRIC_API_KEY}`);
+    }
+
+    if (!res || !res.ok) {
+      res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://static.cricinfo.com/rss/livescores.xml'));
+    }
+
+    if (!res || !res.ok) throw new Error('Live API offline');
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const json = await res.json();
+      const matches = json.matches || json.data || [];
+      if (matches && matches.length > 0) {
+        matchState.isRealLiveConnected = true;
+        matchState.matches = matches;
+        parseRealWorldLiveMatches(matches);
+      }
     } else {
-      newDotType = 'dot-dot';
-      addCommentary(`${matchState.overs}.${matchState.balls}`, `Krishna to Dinusha, NO RUN. Defended back to bowler.`);
+      const xmlText = await res.text();
+      const items = parseXmlItems(xmlText);
+      if (items.length > 0) {
+        matchState.isRealLiveConnected = true;
+        matchState.matches = items;
+        parseRealWorldLiveMatches(items);
+      }
     }
+  } catch (err) {
+    console.warn('Real live score fetch warning:', err.message);
   }
-
-  // Add new pitch scatter dot to current bowler dataset
-  const activeBowler = matchState.bowlersData[matchState.activePitchBowlerIdx];
-  const newX = Math.floor(Math.random() * 40) + 30; // 30% to 70% width across narrow pitch
-  const newY = Math.floor(Math.random() * 50) + 28; // 28% to 78% height
-  activeBowler.dots.push({ x: newX, y: newY, type: newDotType });
-
-  renderHawkEyePitchDots();
-  updateHUDUI();
 }
 
-function updateHUDUI() {
-  // Update Score
-  const heroTeamEl = document.querySelector('.team-hero');
-  if (heroTeamEl) {
-    heroTeamEl.innerHTML = `SL <strong class="score-emerald" id="score-sl">${matchState.slScore}/${matchState.slWickets}</strong>`;
+function parseXmlItems(xmlText) {
+  const matches = [];
+  const itemMatches = xmlText.match(/<item>[\s\S]*?<\/item>/g) || [];
+  itemMatches.forEach(item => {
+    const title = (item.match(/<title>(.*?)<\/title>/) || [])[1] || '';
+    const description = (item.match(/<description>(.*?)<\/description>/) || [])[1] || '';
+    if (title) matches.push({ title: title.trim(), description: description.trim() });
+  });
+  return matches;
+}
+
+function parseRealWorldLiveMatches(matches) {
+  if (!matches || matches.length === 0) return;
+
+  // Render Cards view with all real-world live matches
+  renderScorecardMatches(matches);
+
+  // Search for Sri Lanka vs India live match payload
+  const slIndMatch = matches.find(m => {
+    const str = ((m.title || '') + (m.t1 || '') + (m.t2 || '')).toLowerCase();
+    return str.includes('sri lanka') || str.includes('india');
+  });
+
+  if (slIndMatch) {
+    if (slIndMatch.t1s || slIndMatch.t2s) {
+      // JSON API Format (CricAPI)
+      const t1Score = slIndMatch.t1s || matchState.slScore;
+      const t2Score = slIndMatch.t2s || matchState.indScore;
+      const status = slIndMatch.status || matchState.statusMessage;
+
+      matchState.slScore = t1Score;
+      matchState.indScore = t2Score;
+      matchState.statusMessage = status;
+
+      updateRealLiveHUD(t1Score, t2Score, status);
+    } else if (slIndMatch.title) {
+      // RSS Title Format e.g. "Sri Lanka 235/5 * v India 462/10"
+      const parts = slIndMatch.title.split(/v|vs/i);
+      if (parts.length >= 2) {
+        const slPart = parts.find(p => p.toLowerCase().includes('sri lanka')) || parts[0];
+        const indPart = parts.find(p => p.toLowerCase().includes('india')) || parts[1];
+
+        const slScore = extractScore(slPart) || matchState.slScore;
+        const indScore = extractScore(indPart) || matchState.indScore;
+
+        matchState.slScore = slScore;
+        matchState.indScore = indScore;
+
+        updateRealLiveHUD(slScore, indScore, slIndMatch.description || matchState.statusMessage);
+      }
+    }
   }
+}
+
+function extractScore(str) {
+  const match = str.match(/\d+[\/\d\*\s]*/);
+  return match ? match[0].trim() : null;
+}
+
+function updateRealLiveHUD(slScore, indScore, statusText) {
+  const heroTeamEl = document.querySelector('.team-hero');
+  if (heroTeamEl) heroTeamEl.innerHTML = `SL <strong class="score-emerald" id="score-sl">${slScore}</strong>`;
 
   const oppTeamEl = document.querySelector('.team-opp');
-  if (oppTeamEl) {
-    oppTeamEl.innerHTML = `IND <strong class="score-cyan" id="score-ind">462</strong>`;
-  }
-  
-  const overEl = document.getElementById('hud-over-status');
-  if (overEl) {
-    overEl.textContent = `DAY ${matchState.day} • ${matchState.overs}.${matchState.balls} OV`;
-  }
+  if (oppTeamEl) oppTeamEl.innerHTML = `IND <strong class="score-cyan" id="score-ind">${indScore}</strong>`;
 
-  // Trail Calculation
-  const trailRuns = matchState.indInns1 - matchState.slScore;
+  const overBadge = document.getElementById('hud-over-status');
+  if (overBadge) overBadge.textContent = 'REAL LIVE • REAL-TIME';
+
   const eqEl = document.getElementById('equation-text');
-
-  if (eqEl) {
-    if (trailRuns > 0) {
-      eqEl.innerHTML = `Sri Lanka trail by <strong>${trailRuns}</strong> runs`;
-    } else {
-      const lead = Math.abs(trailRuns);
-      eqEl.innerHTML = `Sri Lanka lead by <strong>${lead}</strong> runs`;
-    }
-  }
-
-  // Batters
-  const strikerEl = document.getElementById('striker-runs');
-  if (strikerEl) strikerEl.textContent = matchState.strikerRuns;
-
-  // Recent Balls Ribbon
-  const recentContainer = document.getElementById('recent-balls');
-  if (recentContainer) {
-    recentContainer.innerHTML = '';
-    matchState.recentBalls.forEach((b, idx) => {
-      const span = document.createElement('span');
-      span.className = 'ball-tag';
-      if (b === '4') span.classList.add('ball-four');
-      else if (b === '6') span.classList.add('ball-six');
-      else if (b === 'W') span.classList.add('ball-wicket');
-      if (idx === matchState.recentBalls.length - 1) span.classList.add('ball-current');
-      span.textContent = b;
-      recentContainer.appendChild(span);
-    });
-  }
+  if (eqEl) eqEl.innerHTML = `<strong>${statusText.toUpperCase()}</strong>`;
 }
 
-function addCommentary(over, text) {
-  const commContainer = document.getElementById('comm-list-container');
-  if (!commContainer) return;
+function renderScorecardMatches(matches) {
+  const scPane = document.getElementById('view-scorecard');
+  if (!scPane) return;
 
-  const item = document.createElement('div');
-  item.className = 'comm-box';
-  if (text.includes('FOUR') || text.includes('WICKET')) {
-    item.classList.add('highlight-six');
-  }
-  item.innerHTML = `<span class="comm-over">${over}</span><span class="comm-txt">${text}</span>`;
-  commContainer.insertBefore(item, commContainer.firstChild);
-
-  // Keep max 2 items to strictly avoid scrolling
-  while (commContainer.children.length > 2) {
-    commContainer.removeChild(commContainer.lastChild);
-  }
+  let html = `
+    <div class="simple-card">
+      <div class="card-title">REAL-WORLD LIVESCORES FEED</div>
+  `;
+  matches.slice(0, 4).forEach((m) => {
+    const titleText = m.title || `${m.t1 || 'Team 1'} vs ${m.t2 || 'Team 2'}`;
+    const scoreText = m.description || `${m.t1s || ''} ${m.t2s ? '/ ' + m.t2s : ''}`;
+    html += `
+      <div class="score-item">
+        <span>${titleText}</span>
+        <span>${scoreText}</span>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  scPane.innerHTML = html;
 }
 
 function handleAction(action, targetBtn) {
@@ -282,5 +295,5 @@ function switchPitchBowler(btn) {
 
 // Export for Node unit testing environment if running under CommonJS
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { DPAD, moveFocus, matchState };
+  module.exports = { DPAD, moveFocus, matchState, fetchRealWorldLiveScores };
 }
